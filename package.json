@@ -1,0 +1,19 @@
+{
+  "name": "ue4-free-asset-notifications",
+  "version": "1.0.0",
+  "description": "provides notifications for free updates in the unreal engine marketplace",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Puyodead1",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^13.1.0",
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^16.6.1",
+    "@types/node-fetch": "^2.5.12"
+  }
+}
