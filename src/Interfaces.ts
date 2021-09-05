@@ -50,6 +50,23 @@ export interface PlatformObject {
   value: string;
 }
 
+export interface RatingObject {
+  targetId: string;
+  averageRating: number;
+  rating5: number;
+  rating4: number;
+  rating3: number;
+  rating2: number;
+  rating1: number;
+  legacyRatingNum: number;
+  total: number;
+  rating5Percent: number;
+  rating4Percent: number;
+  rating3Percent: number;
+  rating2Percent: number;
+  rating1Percent: number;
+}
+
 export interface ResourceObject {
   id: string;
   catalogItemId: string;
@@ -92,7 +109,8 @@ export interface ResourceObject {
   price: string;
   discount?: string | null;
   discountPrice?: string | null;
-  reviewed: boolean;
+  rating: RatingObject;
+  // reviewed: boolean;
 }
 
 export interface PagingObject {
@@ -108,5 +126,12 @@ export interface ResponseData {
 
 export interface ResponseJSON {
   status: ResponseStatus;
-  data: ResourceObject[];
+  data: {
+    elements: ResourceObject[];
+  };
+}
+
+export enum CheckType {
+  MONTHLY = "MONTHLY",
+  PERM = "PERM_FREE",
 }

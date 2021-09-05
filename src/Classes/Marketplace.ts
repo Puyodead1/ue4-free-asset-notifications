@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import { ResourceObject, ResponseJSON, ResponseStatus } from "../Interfaces";
+import { ResponseJSON, ResponseStatus } from "../Interfaces";
 import Resource from "./Resource";
 
 export default class Marketplace {
@@ -17,44 +17,35 @@ export default class Marketplace {
     };
   }
 
-  // TODO: fix this return type
-  fetchAllLatest(): Promise<any> {
+  fetchPerm(): Promise<Resource[]> {
     return new Promise((resolve, reject) => {
-      fetch(this.URLS.ALL)
+      fetch(this.URLS.PERM)
         .then((res) => res.json())
         .then((res: ResponseJSON) => {
           if (res.status !== ResponseStatus.OK) reject(res);
           const resources: Resource[] = [];
-          res.data.forEach((resource) => {
+          res.data.elements.forEach((resource) => {
             resources.push(new Resource(resource));
           });
 
-          resolve({
-            ...res,
-            data: resources,
-          });
+          resolve(resources);
         })
         .catch(reject);
     });
   }
 
-  fetchLatestMonthly() {
+  fetchMonthly(): Promise<Resource[]> {
     return new Promise((resolve, reject) => {
       fetch(this.URLS.MONTHLY)
-        .then((data) => data.json())
-        .then((data) => {
-          resolve(data);
-        })
-        .catch(reject);
-    });
-  }
+        .then((res) => res.json())
+        .then((res: ResponseJSON) => {
+          if (res.status !== ResponseStatus.OK) reject(res);
+          const resources: Resource[] = [];
+          res.data.elements.forEach((resource) => {
+            resources.push(new Resource(resource));
+          });
 
-  fetchLatestPerm() {
-    return new Promise((resolve, reject) => {
-      fetch(this.URLS.PERM)
-        .then((data) => data.json())
-        .then((data) => {
-          resolve(data);
+          resolve(resources);
         })
         .catch(reject);
     });

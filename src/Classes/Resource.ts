@@ -2,6 +2,7 @@ import {
   CategoryObject,
   ImageObject,
   PlatformObject,
+  RatingObject,
   ReleaseObject,
   ResourceObject,
   ResourceStatus,
@@ -50,7 +51,7 @@ export default class Resource {
   price: string;
   discount?: string | null;
   discountPrice?: string | null;
-  reviewed: boolean;
+  rating: RatingObject;
   /**
    * Creates a new Resource instance
    * @param data Raw API JSON response
@@ -97,6 +98,6 @@ export default class Resource {
     this.price = data.price;
     this.discount = data.discount;
     this.discountPrice = data.discountPrice;
-    this.reviewed = data.reviewed;
+    this.rating = data.rating;
   }
 }
