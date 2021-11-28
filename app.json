@@ -33,5 +33,10 @@
       "quantity": 1,
       "size": "free"
     }
+  },
+  "engines": {
+    "node": "16.x",
+    "yarn": "1.22.17",
+    "npm": "8.1.4"
   }
 }
