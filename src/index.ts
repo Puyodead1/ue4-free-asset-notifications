@@ -149,7 +149,7 @@ client.on("message", async (msg) => {
   }
 });
 
-mongoClient.on("connectionReady", () => {
+mongoClient.once("connectionReady", () => {
   console.log("Successfully connected to mongodb!");
   const db = mongoClient.db();
   const collection = db.collection("documents");
