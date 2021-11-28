@@ -1,8 +1,8 @@
-import Discord, { MessageEmbed } from "discord.js";
+import { MessageEmbed } from "discord.js";
 import Marketplace from "./Classes/Marketplace";
 import Resource from "./Classes/Resource";
 import config from "./config";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 import { CheckType } from "./Interfaces";
 import CustomClient from "./Classes/CustomClient";
 import fetch from "node-fetch";
@@ -13,7 +13,7 @@ const client = new CustomClient({
 });
 const marketplace = new Marketplace();
 
-// const mongoClient = new MongoClient(config.mongodb.uri);
+const mongoClient = new MongoClient(config.mongodb.uri);
 
 async function notify(resource: Resource, type: CheckType) {
   const guild = client.guilds.cache.get(config.server);
@@ -59,15 +59,27 @@ async function notify(resource: Resource, type: CheckType) {
 
 async function processResouces(resources: Resource[], type: CheckType) {
   for (const resource of resources) {
-    // await notify(resource, type);
     await client.mongoCollection
       ?.insertOne({
-        _id: new ObjectId(resource.id),
+        id: resource.id,
         slug: resource.urlSlug,
         type,
       })
-      .then(() => console.log(`Inserted ${resource.title} (${resource.id})`))
-      .catch(console.error);
+      .then(async () => {
+        console.log(`Inserted ${resource.title} (${resource.id})`);
+        await notify(resource, type);
+      })
+      .catch((e) => {
+        if (
+          e.message
+            .toLowerCase()
+            .includes("e11000 duplicate key error collection:")
+        )
+          return console.debug(
+            `Ignoring duplicate ${resource.title} (${resource.id})`
+          );
+        console.error(e);
+      });
   }
 }
 
@@ -85,25 +97,15 @@ async function run() {
 
 client.on("ready", async () => {
   console.log("Bot is now ready");
-  // await mongoClient.connect().catch((reason) => {
-  //   console.error(`Failed to connect to MongoDB: ${reason}`);
-  //   client.destroy();
-  //   process.exit(1);
-  // });
-  // console.log("Successfully connected to MongoDB!");
-  // const db = mongoClient.db();
-  // const collection = db.collection("documents");
-  // client.setMongoDB(db);
-  // client.setMongoCollection(collection);
 
-  // console.log("Starting inital run...");
-  // await run().catch(console.error);
-  // console.log("Inital run complete");
-  // setInterval(async () => {
-  //   console.log("Starting scheduled run...");
-  //   await run().catch(console.error);
-  //   console.log("Run complete.");
-  // }, 10 * 60000); // 10 minutes
+  console.log("Starting inital run...");
+  await run().catch(console.error);
+  console.log("Inital run complete");
+  setInterval(async () => {
+    console.log("Starting scheduled run...");
+    await run().catch(console.error);
+    console.log("Run complete.");
+  }, 1.8e7); // 5 hours
 });
 
 client.on("message", async (msg) => {
@@ -127,7 +129,7 @@ client.on("message", async (msg) => {
     const json = await results.json();
     const paginatedMessage = new PaginatedMessage();
     for (const item of json.data.elements) {
-      paginatedMessage.addPageEmbed((embed) => {
+      paginatedMessage.addPageEmbed((embed: any) => {
         return embed
           .setTimestamp()
           .setTitle(item.title)
@@ -147,4 +149,20 @@ client.on("message", async (msg) => {
   }
 });
 
-client.login(config.token);
+mongoClient.on("connectionReady", () => {
+  console.log("Successfully connected to mongodb!");
+  const db = mongoClient.db();
+  const collection = db.collection("documents");
+  client.setMongoDB(db);
+  client.setMongoCollection(collection);
+  collection.createIndex({ id: 1 }, { unique: true });
+
+  if (!client.isReady()) client.login(config.token);
+  else console.warn("Looks like the client is already ready!");
+});
+
+mongoClient.connect().catch((reason) => {
+  console.error(`Failed to connect to MongoDB: ${reason}`);
+  client.destroy();
+  process.exit(1);
+});

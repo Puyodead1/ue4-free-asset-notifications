@@ -4,12 +4,14 @@
   "description": "provides notifications for free updates in the unreal engine marketplace",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p .",
+    "start": "node --enable-source-maps build/index.js",
+    "build:start": "yarn run build && yarn run start"
   },
   "author": "Puyodead1",
   "license": "MIT",
   "dependencies": {
-    "@sapphire/discord.js-utilities": "^3.0.0-next.c4f992f5.0",
+    "@sapphire/discord.js-utilities": "^4.1.0",
     "@types/sqlite3": "^3.1.7",
     "discord.js": "^13.1.0",
     "mongodb": "^4.1.0",
