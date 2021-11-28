@@ -1,0 +1,37 @@
+{
+  "name": "ue4-asset-notifications",
+  "description": "sends notifications to discord when new free assets are found",
+  "repository": "https://github.com/Puyodead1/ue4-free-asset-notifications",
+  "env": {
+    "TOKEN": {
+      "description": "discord token",
+      "required": true
+    },
+    "PERM_FREE_CHANNEL_ID": {
+      "description": "perm free channel id",
+      "required": true
+    },
+    "FREE_MONTH_CHANNEL_ID": {
+      "description": "free for the month channel id",
+      "required": true
+    },
+    "SERVER_ID": {
+      "description": "server id",
+      "required": true
+    },
+    "MONGODB_URI": {
+      "description": "mongodb connection uri",
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 0,
+      "size": "free"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "free"
+    }
+  }
+}
