@@ -57,7 +57,12 @@ async function notify(resource: Resource, type: CheckType) {
   });
 }
 
-async function processResouces(resources: Resource[], type: CheckType) {
+async function processResouces(
+  resources: Resource[],
+  type: CheckType,
+  isInitalRun: boolean
+) {
+  let newC = 0;
   for (const resource of resources) {
     await client.mongoCollection
       ?.insertOne({
@@ -67,45 +72,42 @@ async function processResouces(resources: Resource[], type: CheckType) {
       })
       .then(async () => {
         console.log(`Inserted ${resource.title} (${resource.id})`);
-        await notify(resource, type);
+        newC++;
+        if (!isInitalRun) await notify(resource, type);
       })
       .catch((e) => {
         if (
-          e.message
+          !e.message
             .toLowerCase()
             .includes("e11000 duplicate key error collection:")
         )
-          return console.debug(
-            `Ignoring duplicate ${resource.title} (${resource.id})`
-          );
-        console.error(e);
+          console.error(e);
       });
   }
+
+  console.log(`Inserted ${newC} new resources.`);
 }
 
-async function run() {
+async function run(isInitalRun = false) {
   const perm = await marketplace.fetchPerm().catch(console.error);
-  if (!perm) return;
-
-  await processResouces(perm, CheckType.PERM);
+  if (perm) await processResouces(perm, CheckType.PERM, isInitalRun);
 
   const monthly = await marketplace.fetchMonthly().catch(console.error);
-  if (!monthly) return;
-
-  await processResouces(monthly, CheckType.MONTHLY);
+  if (monthly) await processResouces(monthly, CheckType.MONTHLY, isInitalRun);
 }
 
 client.on("ready", async () => {
   console.log("Bot is now ready");
 
   console.log("Starting inital run...");
-  await run().catch(console.error);
+  await run(false).catch(console.error);
   console.log("Inital run complete");
+
   setInterval(async () => {
     console.log("Starting scheduled run...");
     await run().catch(console.error);
     console.log("Run complete.");
-  }, 1.8e7); // 5 hours
+  }, 3.6e6); // 1 hour
 });
 
 client.on("message", async (msg) => {
