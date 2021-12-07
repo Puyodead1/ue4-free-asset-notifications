@@ -85,7 +85,7 @@ async function processResouces(
       });
   }
 
-  console.log(`Inserted ${newC} new resources.`);
+  console.log(`Inserted ${newC} new ${type} resources.`);
 }
 
 async function run(isInitalRun = false) {
