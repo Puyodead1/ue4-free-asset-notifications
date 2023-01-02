@@ -1,3 +1,5 @@
 build/
 node_modules/
-src/config.dev.ts
+.env*
+!.env.example
+database.db

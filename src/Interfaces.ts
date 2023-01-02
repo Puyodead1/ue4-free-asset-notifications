@@ -75,6 +75,9 @@ export interface ResourceObject {
   recurrence: string;
   currencyCode: string;
   priceValue: number;
+  discountPriceValue: number;
+  voucherDiscount: number;
+  discountPercentage: number;
   keyImages: ImageObject[];
   effectiveDate: string;
   seller: SellerObject;
@@ -107,8 +110,8 @@ export interface ResourceObject {
   canPurchase: boolean;
   owned: boolean;
   price: string;
-  discount?: string | null;
-  discountPrice?: string | null;
+  discount: string | null;
+  discountPrice: string | null;
   rating: RatingObject;
   // reviewed: boolean;
 }
@@ -133,5 +136,5 @@ export interface ResponseJSON {
 
 export enum CheckType {
   MONTHLY = "MONTHLY",
-  PERM = "PERM_FREE",
+  PERM = "PERM",
 }

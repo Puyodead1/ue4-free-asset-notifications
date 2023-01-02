@@ -7,7 +7,7 @@ import {
   ResourceObject,
   ResourceStatus,
   SellerObject,
-} from "../Interfaces";
+} from "./Interfaces";
 
 export default class Resource {
   id: string;
@@ -17,6 +17,9 @@ export default class Resource {
   recurrence: string;
   currencyCode: string;
   priceValue: number;
+  discountPriceValue: number;
+  voucherDiscount: number;
+  discountPercentage: number;
   keyImages: ImageObject[];
   effectiveDate: Date;
   seller: SellerObject;
@@ -49,8 +52,8 @@ export default class Resource {
   canPurchase: boolean;
   owned: boolean;
   price: string;
-  discount?: string | null;
-  discountPrice?: string | null;
+  discount: string | null;
+  discountPrice: string | null;
   rating: RatingObject;
   /**
    * Creates a new Resource instance
@@ -64,6 +67,9 @@ export default class Resource {
     this.recurrence = data.recurrence;
     this.currencyCode = data.currencyCode;
     this.priceValue = data.priceValue;
+    this.discountPriceValue = data.discountPriceValue;
+    this.voucherDiscount = data.voucherDiscount;
+    this.discountPercentage = data.discountPercentage;
     this.keyImages = data.keyImages;
     this.effectiveDate = new Date(data.effectiveDate);
     this.seller = data.seller;
@@ -92,12 +98,12 @@ export default class Resource {
     this.learnThumbnail = data.learnThumbnail;
     this.headerImage = data.headerImage;
     this.status = data.status;
-    this.ownedCount = data.ownedCount;
-    this.canPurchase = data.canPurchase;
-    this.owned = data.owned;
     this.price = data.price;
     this.discount = data.discount;
     this.discountPrice = data.discountPrice;
+    this.ownedCount = data.ownedCount;
+    this.canPurchase = data.canPurchase;
+    this.owned = data.owned;
     this.rating = data.rating;
   }
 }

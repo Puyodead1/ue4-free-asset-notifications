@@ -1,170 +1,220 @@
-import { MessageEmbed } from "discord.js";
-import Marketplace from "./Classes/Marketplace";
-import Resource from "./Classes/Resource";
-import config from "./config";
-import { MongoClient } from "mongodb";
+import { Client, EmbedBuilder } from "discord.js";
+import * as dotenv from "dotenv";
+import "reflect-metadata";
+import { DataSource } from "typeorm";
+import { Entry } from "./Entry";
 import { CheckType } from "./Interfaces";
-import CustomClient from "./Classes/CustomClient";
-import fetch from "node-fetch";
-import { PaginatedMessage } from "@sapphire/discord.js-utilities";
+import Marketplace from "./Marketplace";
+import Resource from "./Resource";
+import { error, info, warn } from "./utils";
 
-const client = new CustomClient({
-  intents: ["GUILDS", "GUILD_MESSAGES", "GUILD_MESSAGE_REACTIONS"],
+dotenv.config({
+  path: process.env.IS_DEVELOPMENT ? ".env.dev" : ".env",
 });
-const marketplace = new Marketplace();
 
-const mongoClient = new MongoClient(config.mongodb.uri);
+if (!process.env.GUILD_ID) throw new Error("GUILD_ID not set in .env");
+if (!process.env.CHANNELS_PERM)
+  throw new Error("CHANNELS_PERM not set in .env");
+if (!process.env.CHANNELS_MONTHLY)
+  throw new Error("CHANNELS_MONTHLY not set in .env");
+if (!process.env.TOKEN) throw new Error("TOKEN not set in .env");
+if (!process.env.DATABASE_TYPE)
+  warn("DATABASE_TYPE not set in .env, defaulting to sqlite");
+if (!process.env.DATABASE_DATABASE)
+  warn("DATABASE_HOST not set in .env, defaulting to database.db");
+
+const dataSource = new DataSource({
+  type: (process.env.DATABASE_TYPE as any) ?? "sqlite",
+  host: process.env.DATABASE_HOST ?? "localhost",
+  port: Number(process.env.DATABASE_PORT ?? 3306),
+  username: process.env.DATABASE_USERNAME ?? "test",
+  password: process.env.DATABASE_PASSWORD ?? "test",
+  database: process.env.DATABASE_DATABASE ?? "database.db",
+  synchronize: true,
+  logging: process.env.DATABASE_DEBUG ? true : false ?? false,
+  entities: [Entry],
+  subscribers: [],
+  migrations: [],
+});
+
+const marketplace = new Marketplace();
+const client = new Client({
+  intents: ["Guilds"],
+});
 
 async function notify(resource: Resource, type: CheckType) {
-  const guild = client.guilds.cache.get(config.server);
-  if (!guild) return console.error("Guild not found, check ID.");
-  const channel = await guild.channels.fetch(config.channels[type]);
+  const guild = client.guilds.cache.get(process.env.GUILD_ID!);
+  if (!guild) {
+    error("Guild not found.");
+    return;
+  }
+  const channel = await guild.channels.fetch(process.env[`CHANNELS_${type}`]!);
 
-  if (!channel || !channel.isText())
-    return console.error("Channel not found or is not a text channel.");
+  if (!channel || !channel.isTextBased()) {
+    error("Channel not found or is not a text channel.");
+    return;
+  }
 
-  const embed = new MessageEmbed()
+  const embed = new EmbedBuilder()
+    .setAuthor({
+      name: resource.seller.name,
+      iconURL:
+        "https://www.google.com/s2/favicons?sz=256&domain=https://www.unrealengine.com",
+      url: `https://www.unrealengine.com/marketplace/en-US/seller/${resource.seller.name.replaceAll(
+        " ",
+        "+"
+      )}`,
+    })
     .setTitle(resource.title)
-    .setDescription(resource.description.substr(0, 4096))
-    .setFooter(`Submitted by ${resource.seller.name}`)
+    .setDescription(resource.description.substring(0, 4096))
     .setURL(
       `https://www.unrealengine.com/marketplace/en-US/product/${resource.urlSlug}`
     )
-    .addField(
-      "Compatable Apps",
-      resource.compatibleApps.length
-        ? resource.compatibleApps.map((x) => `\`\`${x}\`\``).join(", ")
-        : "N/A"
+    .addFields(
+      {
+        name: "Compatable Apps",
+        value: resource.compatibleApps.length
+          ? resource.compatibleApps.map((x) => `\`\`${x}\`\``).join(", ")
+          : "N/A",
+      },
+      {
+        name: "Categories",
+        value: resource.categories.length
+          ? resource.categories.map((x) => `\`\`${x.name}\`\``).join(", ")
+          : "N/A",
+      },
+      {
+        name: "Platforms",
+        value: resource.platforms.length
+          ? resource.platforms.map((x) => `\`\`${x.value}\`\``).join(", ")
+          : "N/A",
+      },
+      {
+        name: "Average Rating",
+        value: resource.rating.averageRating.toString(),
+      }
     )
-    .addField(
-      "Categories",
-      resource.categories.length
-        ? resource.categories.map((x) => `\`\`${x.name}\`\``).join(", ")
-        : "N/A"
-    )
-    .addField(
-      "Platforms",
-      resource.platforms.length
-        ? resource.platforms.map((x) => `\`\`${x.value}\`\``).join(", ")
-        : "N/A"
-    )
-    .addField("Average Rating", resource.rating.averageRating.toString())
     .setImage(encodeURI(resource.featured))
     .setThumbnail(encodeURI(resource.thumbnail))
     .setTimestamp(resource.effectiveDate);
-  await channel.send({
+
+  if (resource.discounted) {
+    // calulate the discount percentage because epic is fucking stupid can't just set discountPercentage to 100 for temporary free shit
+    embed.addFields({
+      name: "Price",
+      value: `~~$${resource.price}~~ **${
+        resource.discountPrice
+      }** (${Math.round(
+        ((resource.priceValue - resource.discountPriceValue) /
+          resource.priceValue) *
+          100
+      )}% off)`,
+    });
+  }
+  const msg = await channel.send({
     embeds: [embed],
   });
+  return msg.id;
 }
 
-async function processResouces(
+async function addResources(
   resources: Resource[],
   type: CheckType,
   isInitalRun: boolean
 ) {
-  let newC = 0;
+  let insertCount = 0;
   for (const resource of resources) {
-    await client.mongoCollection
-      ?.insertOne({
+    const exists = !!(await Entry.findOne({
+      where: {
         id: resource.id,
-        slug: resource.urlSlug,
-        type,
-      })
-      .then(async () => {
-        console.log(`Inserted ${resource.title} (${resource.id})`);
-        newC++;
-        if (!isInitalRun) await notify(resource, type);
-      })
-      .catch((e) => {
-        if (
-          !e.message
-            .toLowerCase()
-            .includes("e11000 duplicate key error collection:")
-        )
-          console.error(e);
-      });
+      },
+    }));
+    if (exists) continue;
+    const entry = new Entry();
+    entry.id = resource.id;
+    entry.slug = resource.urlSlug;
+    entry.type = type;
+    if (!isInitalRun) entry.messageId = await notify(resource, type);
+    await entry.save();
+    info(`Added ${resource.title} (${resource.id})`);
+    insertCount++;
   }
 
-  console.log(`Inserted ${newC} new ${type} resources.`);
+  info(`Added ${insertCount} new ${type} entries.`);
 }
 
 async function run(isInitalRun = false) {
-  const perm = await marketplace.fetchPerm().catch(console.error);
-  if (perm) await processResouces(perm, CheckType.PERM, isInitalRun);
+  const perm = await marketplace
+    .fetchPerm()
+    .catch((e) => error(`Error running permanently free check: ${e}`));
+  if (perm) await addResources(perm, CheckType.PERM, isInitalRun);
 
-  const monthly = await marketplace.fetchMonthly().catch(console.error);
-  if (monthly) await processResouces(monthly, CheckType.MONTHLY, isInitalRun);
+  const monthly = await marketplace
+    .fetchMonthly()
+    .catch((e) => error(`Error running monthly free check: ${e}`));
+  if (monthly) await addResources(monthly, CheckType.MONTHLY, isInitalRun);
 }
 
 client.on("ready", async () => {
-  console.log("Bot is now ready");
+  info(`Bot logged in and ready as ${client.user?.tag}`);
 
-  console.log("Starting inital run...");
-  await run(false).catch(console.error);
-  console.log("Inital run complete");
+  info("Connected to database.");
+  info("Starting inital run...");
+  await run(true).catch(error);
+  info("Inital run complete, next run in 1 hour.");
 
   setInterval(async () => {
-    console.log("Starting scheduled run...");
-    await run().catch(console.error);
-    console.log("Run complete.");
+    info("Starting scheduled run...");
+    await run().catch((e) => error(`Error running scheduled run: ${e}`));
+    info("Run complete.");
   }, 3.6e6); // 1 hour
 });
 
-client.on("message", async (msg) => {
-  if (msg.author.id !== "213247101314924545") return console.error("user");
-  if (!msg.content.toLowerCase().startsWith("!")) return console.error("!");
-  const args = msg.content.toLowerCase().substr(1).split(" ");
-  const cmd = args.shift();
+// client.on("message", async (msg) => {
+//   if (msg.author.id !== "213247101314924545") return console.error("user");
+//   if (!msg.content.toLowerCase().startsWith("!")) return console.error("!");
+//   const args = msg.content.toLowerCase().substr(1).split(" ");
+//   const cmd = args.shift();
 
-  if (cmd === "search") {
-    const loadingMsg = await msg.reply("Searching...");
-    const results = await fetch(
-      `https://www.unrealengine.com/marketplace/api/assets?lang=en-US&start=0&count=100&sortBy=relevancy&sortDir=DESC&keywords=${encodeURIComponent(
-        args.join(" ")
-      )}`
-    );
-    if (!results) {
-      loadingMsg.edit({ content: "Error searching for asset!" });
-      return;
-    }
+//   if (cmd === "search") {
+//     const loadingMsg = await msg.reply("Searching...");
+//     const results = await fetch<ResponseJSON>(
+//       `https://www.unrealengine.com/marketplace/api/assets?lang=en-US&start=0&count=100&sortBy=relevancy&sortDir=DESC&keywords=${encodeURIComponent(
+//         args.join(" ")
+//       )}`,
+//       FetchResultTypes.JSON
+//     );
+//     if (!results) {
+//       loadingMsg.edit({ content: "Error searching for asset!" });
+//       return;
+//     }
 
-    const json = await results.json();
-    const paginatedMessage = new PaginatedMessage();
-    for (const item of json.data.elements) {
-      paginatedMessage.addPageEmbed((embed: any) => {
-        return embed
-          .setTimestamp()
-          .setTitle(item.title)
-          .setDescription(item.description.substr(0, 2046))
-          .setImage(item.headerImage)
-          .addField(
-            "Price",
-            item.discounted
-              ? `~~${item.price}~~ ${item.discountPrice}`
-              : item.price
-          );
-      });
-    }
+//     const paginatedMessage = new PaginatedMessage();
+//     for (const item of results.data.elements) {
+//       paginatedMessage.addPageEmbed((embed: any) => {
+//         return embed
+//           .setTimestamp()
+//           .setTitle(item.title)
+//           .setDescription(item.description.substr(0, 2046))
+//           .setImage(item.headerImage)
+//           .addField(
+//             "Price",
+//             item.discounted
+//               ? `~~${item.price}~~ ${item.discountPrice}`
+//               : item.price
+//           );
+//       });
+//     }
 
-    await paginatedMessage.run(loadingMsg, msg.author);
-    return;
-  }
-});
+//     await paginatedMessage.run(loadingMsg, msg.author);
+//     return;
+//   }
+// });
 
-mongoClient.once("connectionReady", () => {
-  console.log("Successfully connected to mongodb!");
-  const db = mongoClient.db();
-  const collection = db.collection("documents");
-  client.setMongoDB(db);
-  client.setMongoCollection(collection);
-  collection.createIndex({ id: 1 }, { unique: true });
+(async () => {
+  await dataSource
+    .initialize()
+    .catch((e) => error(`Error connecting to database: ${e}`));
 
-  if (!client.isReady()) client.login(config.token);
-  else console.warn("Looks like the client is already ready!");
-});
-
-mongoClient.connect().catch((reason) => {
-  console.error(`Failed to connect to MongoDB: ${reason}`);
-  client.destroy();
-  process.exit(1);
-});
+  client.login(process.env.TOKEN);
+})();

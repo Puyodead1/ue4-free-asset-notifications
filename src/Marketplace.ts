@@ -1,5 +1,5 @@
-import fetch from "node-fetch";
-import { ResponseJSON, ResponseStatus } from "../Interfaces";
+import { fetch, FetchResultTypes } from "@sapphire/fetch";
+import { ResponseJSON, ResponseStatus } from "./Interfaces";
 import Resource from "./Resource";
 
 export default class Marketplace {
@@ -10,18 +10,17 @@ export default class Marketplace {
   };
   constructor() {
     this.URLS = {
-      ALL: "https://www.unrealengine.com/marketplace/api/assets?lang=en-US&start=0&count=100&sortBy=effectiveDate&sortDir=DESC&priceRange=[0,0]",
+      ALL: "https://www.unrealengine.com/marketplace/api/assets?start=0&count=100",
       MONTHLY:
-        "https://www.unrealengine.com/marketplace/api/assets?lang=en-US&start=0&count=100&sortBy=effectiveDate&sortDir=DESC&tag[]=4910",
-      PERM: "https://www.unrealengine.com/marketplace/api/assets?lang=en-US&start=0&count=100&sortBy=effectiveDate&sortDir=DESC&tag[]=4906",
+        "https://www.unrealengine.com/marketplace/api/assets?start=0&count=100&tag[]=4910",
+      PERM: "https://www.unrealengine.com/marketplace/api/assets?start=0&count=100&tag[]=4906",
     };
   }
 
   fetchPerm(): Promise<Resource[]> {
     return new Promise((resolve, reject) => {
-      fetch(this.URLS.PERM)
-        .then((res) => res.json())
-        .then((res: ResponseJSON) => {
+      fetch<ResponseJSON>(this.URLS.PERM, FetchResultTypes.JSON)
+        .then((res) => {
           if (res.status !== ResponseStatus.OK) reject(res);
           const resources: Resource[] = [];
           res.data.elements.forEach((resource) => {
@@ -36,9 +35,8 @@ export default class Marketplace {
 
   fetchMonthly(): Promise<Resource[]> {
     return new Promise((resolve, reject) => {
-      fetch(this.URLS.MONTHLY)
-        .then((res) => res.json())
-        .then((res: ResponseJSON) => {
+      fetch<ResponseJSON>(this.URLS.MONTHLY, FetchResultTypes.JSON)
+        .then((res) => {
           if (res.status !== ResponseStatus.OK) reject(res);
           const resources: Resource[] = [];
           res.data.elements.forEach((resource) => {
