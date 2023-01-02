@@ -1,4 +1,3 @@
 # ue4-free-asset-notifications
 
-
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+Get notifications in discord when new free assets (perm free or free for the month) are added
